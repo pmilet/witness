@@ -1,5 +1,10 @@
 # Witness
 
+> **⚠️ ALPHA VERSION WARNING**  
+> This software is currently in **alpha stage** and under active development.  
+> Features may change, and breaking changes may occur without notice.  
+> Use in production environments at your own risk.
+
 **An MCP server that gives AI agents the power to record, replay, and compare HTTP API interactions.**
 
 The REST equivalent of [Playwright MCP](https://github.com/microsoft/playwright-mcp) — but for APIs instead of browsers.

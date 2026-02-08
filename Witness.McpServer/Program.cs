@@ -37,6 +37,16 @@ var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
 
 // Log to stderr so it doesn't interfere with MCP protocol on stdout
 Console.SetError(new StreamWriter(Console.OpenStandardError()) { AutoFlush = true });
+
+// Display alpha version warning
+logger.LogWarning("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+logger.LogWarning("⚠️  WITNESS MCP SERVER - ALPHA VERSION");
+logger.LogWarning("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+logger.LogWarning("This software is in ALPHA stage and under active development.");
+logger.LogWarning("Features may change, and breaking changes may occur without notice.");
+logger.LogWarning("Use in production environments at your own risk.");
+logger.LogWarning("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
 logger.LogInformation("Witness MCP Server starting...");
 
 try
@@ -117,11 +127,11 @@ static async Task<McpResponse> HandleRequestAsync(McpRequest request, IMediator 
                 id = request.id,
                 result = new
                 {
-                    protocolVersion = "0.1.0",
+                    protocolVersion = "0.1.0-alpha",
                     serverInfo = new
                     {
                         name = "witness-mcp",
-                        version = "0.1.0"
+                        version = "0.1.0-alpha"
                     },
                     capabilities = new
                     {

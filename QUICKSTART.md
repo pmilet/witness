@@ -1,5 +1,10 @@
 # Witness MCP Server - Quick Start Guide
 
+> **⚠️ ALPHA VERSION WARNING**  
+> This software is currently in **alpha stage** and under active development.  
+> Features may change, and breaking changes may occur without notice.  
+> Use in production environments at your own risk.
+
 ## Installation
 
 ### From Source
