@@ -1,0 +1,16 @@
+{
+  "witness": {
+    "storage": {
+      "type": "local",
+      "path": "./witness-store"
+    },
+    "defaults": {
+      "timeoutMs": 30000,
+      "followRedirects": true
+    },
+    "comparison": {
+      "defaultIgnoreFields": ["timestamp", "requestId", "date"],
+      "defaultNumericTolerance": 0.001
+    }
+  }
+}

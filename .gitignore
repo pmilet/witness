@@ -301,6 +301,17 @@ FakesAssemblies/
 .ntvs_analysis.dat
 node_modules/
 
+# TypeScript build output
+dist/
+
+# Package lock files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Witness storage (default location)
+witness-store/
+
 # Visual Studio 6 build log
 *.plg
 

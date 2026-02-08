@@ -38,8 +38,13 @@ Witness is the evolution of [pmilet/playback](https://github.com/pmilet/playback
 ### Install
 
 ```bash
-npm install -g @pmilet/witness-mcp
+git clone https://github.com/pmilet/witness.git
+cd witness
+npm install
+npm run build
 ```
+
+See [QUICKSTART.md](QUICKSTART.md) for detailed installation and configuration instructions.
 
 ### Add to your MCP client
 
@@ -48,8 +53,8 @@ npm install -g @pmilet/witness-mcp
 {
   "mcpServers": {
     "witness": {
-      "command": "npx",
-      "args": ["@pmilet/witness-mcp"]
+      "command": "node",
+      "args": ["/absolute/path/to/witness/dist/index.js"]
     }
   }
 }
@@ -61,8 +66,8 @@ npm install -g @pmilet/witness-mcp
   "mcp": {
     "servers": {
       "witness": {
-        "command": "npx",
-        "args": ["@pmilet/witness-mcp"]
+        "command": "node",
+        "args": ["/absolute/path/to/witness/dist/index.js"]
       }
     }
   }
@@ -229,16 +234,18 @@ See [Configuration Reference](docs/SPEC.md#7-configuration) for all options.
 
 ## Documentation
 
-- [Full Specification](docs/SPEC.md) — Complete tool definitions, data model, architecture, and modernization patterns
-- [Examples](examples/) — Ready-to-use scenarios for common use cases
-- [Contributing](CONTRIBUTING.md)
+- [Quick Start Guide](QUICKSTART.md) — Installation, configuration, and first steps
+- [Full Specification](witness-mcp-server-spec.md) — Complete tool definitions, data model, architecture, and modernization patterns
+- [Usage Examples](examples/USAGE.md) — Ready-to-use scenarios for common use cases
+- [Development Guide](DEVELOPMENT.md) — Contributing and development workflow
 
 ---
 
 ## Roadmap
 
-- [x] Core: record, replay, compare, inspect, list
+- [x] Core: record, replay, inspect, list ✅ **v0.1.0 Complete**
 - [ ] Chains: multi-step flows with variable extraction
+- [ ] Compare: diff engine with configurable tolerances
 - [ ] OpenAPI: discover + schema validation
 - [ ] Generate: AI-assisted scenario generation
 - [ ] Suites: batch execution with parallel support
@@ -251,7 +258,16 @@ See [Configuration Reference](docs/SPEC.md#7-configuration) for all options.
 
 ## Contributing
 
-Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting a PR.
+Contributions are welcome! Please read [DEVELOPMENT.md](DEVELOPMENT.md) for the development guide.
+
+To get started:
+```bash
+git clone https://github.com/pmilet/witness.git
+cd witness
+npm install
+npm run build
+npm test
+```
 
 ## License
 
