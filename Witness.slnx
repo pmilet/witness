@@ -1,0 +1,10 @@
+<Solution>
+  <Project Path="Witness.Application.Tests/Witness.Application.Tests.csproj" />
+  <Project Path="Witness.Application/Witness.Application.csproj" />
+  <Project Path="Witness.Domain.Tests/Witness.Domain.Tests.csproj" />
+  <Project Path="Witness.Domain/Witness.Domain.csproj" />
+  <Project Path="Witness.Infrastructure.Tests/Witness.Infrastructure.Tests.csproj" />
+  <Project Path="Witness.Infrastructure/Witness.Infrastructure.csproj" />
+  <Project Path="Witness.Integration.Tests/Witness.Integration.Tests.csproj" />
+  <Project Path="Witness.McpServer/Witness.McpServer.csproj" />
+</Solution>

@@ -427,3 +427,34 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# .NET specific
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.log
+.vs/
+.vscode/
+
+# Build artifacts
+*.dll
+*.pdb
+*.exe
+
+# Test results
+TestResults/
+*.trx
+
+# NuGet
+*.nupkg
+*.snupkg
+
+# Witness storage
+witness-store/
+
+# Temporary files
+*.tmp
+*.swp
+*~

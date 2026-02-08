@@ -4,6 +4,15 @@
 
 The REST equivalent of [Playwright MCP](https://github.com/microsoft/playwright-mcp) — but for APIs instead of browsers.
 
+> **🎉 .NET 9.0 Version Available!**  
+> This repository now includes a complete .NET 9.0 implementation with Domain-Driven Design, Clean Code principles, and comprehensive unit tests.  
+> See **[README-DOTNET.md](README-DOTNET.md)** for the .NET version documentation.
+>
+> **Migration Path:**
+> - **TypeScript (Original)**: Production-ready, fully functional (see below)
+> - **.NET 9.0 (New)**: Modern architecture, extensible, fully tested (see [README-DOTNET.md](README-DOTNET.md))
+> - Both versions use the same storage format for seamless interoperability
+
 ---
 
 ## What It Does
