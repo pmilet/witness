@@ -11,7 +11,9 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
-    "test": "echo \"No tests yet\" && exit 0"
+    "test": "npm run test:units && npm run test:integration",
+    "test:units": "node test-units.js",
+    "test:integration": "node test-integration.js"
   },
   "repository": {
     "type": "git",
