@@ -1,0 +1,46 @@
+{
+  "name": "@pmilet/witness-mcp",
+  "version": "0.1.0",
+  "description": "An MCP server that gives AI agents the power to record, replay, and compare HTTP API interactions",
+  "main": "dist/index.js",
+  "type": "module",
+  "bin": {
+    "witness-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pmilet/witness.git"
+  },
+  "keywords": [
+    "mcp",
+    "testing",
+    "api",
+    "http",
+    "record",
+    "replay",
+    "compare"
+  ],
+  "author": "pmilet",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/pmilet/witness/issues"
+  },
+  "homepage": "https://github.com/pmilet/witness#readme",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "axios": "^1.7.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
