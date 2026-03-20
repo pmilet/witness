@@ -152,6 +152,81 @@ witness/list
 
 ---
 
+## Using Witness in a Copilot Chat session
+
+Once Witness is configured as an MCP server in VS Code, you can drive the entire workflow from the Copilot Chat panel without writing a single line of test code.
+
+Here is a real session validating the same order API migration from the example above.
+
+---
+
+**You:**
+> I need to validate that the new orders API at http://modern:3002 behaves correctly compared to the legacy one at http://legacy:3001. Start by recording a product lookup and an order creation against the legacy service, then replay both against the new service and tell me what changed.
+
+---
+
+**Copilot:** Sure. I'll record two interactions against the legacy service, replay them against the new one, and compare the results.
+
+*Calling* `witness/record` *— GET /api/products/1 on legacy*
+> ✅ 200 OK — `{ "id": 1, "name": "Widget", "unit_price": 9.99, "stock": 100 }`
+> WitnessId: `legacy-get-product_GET_api-products-1_00000000_20260320T1125`
+
+*Calling* `witness/record` *— POST /api/orders on legacy*
+> ✅ 201 Created — `{ "order_id": 1001, "qty": 2, "total_price": 19.98, "status": "pending" }`
+> WitnessId: `legacy-create-order_POST_api-orders_ff3f6f9b_20260320T1125`
+
+*Calling* `witness/replay` *— replaying GET /api/products/1 on modern*
+> ✅ 200 OK — `{ "id": 1, "name": "Widget", "price": 9.99, "currency": "USD" }`
+
+*Calling* `witness/replay` *— replaying POST /api/orders on modern*
+> ✅ 201 Created — `{ "orderId": 1001, "quantity": 2, "amount": 19.98, "currency": "USD", "state": "created" }`
+
+*Calling* `witness/compare` *— product lookup*
+> ❌ Body mismatch (4 diffs): `unit_price` → `price`, `stock` removed, `currency` added
+
+*Calling* `witness/compare` *— order creation*
+> ❌ Body mismatch (5 diffs): `order_id` → `orderId`, `qty` → `quantity`, `total_price` → `amount`, `status` removed, `state` + `currency` added
+
+**Both endpoints return the correct HTTP status codes.** The schema changed intentionally between legacy and modern:
+
+| Field (legacy) | Field (modern) | Change |
+|---|---|---|
+| `unit_price` | `price` | renamed |
+| `stock` | *(removed)* | no longer exposed |
+| *(none)* | `currency` | new field |
+| `order_id` | `orderId` | renamed (camelCase) |
+| `qty` | `quantity` | renamed |
+| `total_price` | `amount` | renamed |
+| `status: "pending"` | `state: "created"` | renamed + new vocabulary |
+
+No data was lost — values are preserved, just under different field names. The modern API also adds `currency` as a new required field. If any consumers depend on the legacy field names, they will need to be updated before you cut over.
+
+---
+
+**You:**
+> Good. Save this as session "order-api-migration-v2" and list everything that was recorded.
+
+---
+
+**Copilot:** *Calling* `witness/list` *— session "order-api-migration-v2"*
+
+```
+Session: order-api-migration-v2  (6 interactions)
+
+  GET  /api/products/1   200   legacy-get-product_GET_...
+  GET  /api/products/1   200   replay-legacy-get-product_GET_...
+  POST /api/orders       201   legacy-create-order_POST_...
+  POST /api/orders       201   replay-legacy-create-order_POST_...
+```
+
+All interactions are stored in `./witness-store/sessions/order-api-migration-v2/`. You can inspect any individual recording with `witness/inspect` or re-run the comparison at any time.
+
+---
+
+That's the full loop — from natural language to structured migration evidence — in one chat session, no code written.
+
+---
+
 ## Getting started
 
 ### 1. Build
