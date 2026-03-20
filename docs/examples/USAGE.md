@@ -262,7 +262,91 @@ The interaction JSON includes:
 
 ### Use cases for outbound record/replay
 
+- **Production bug repro** — Record a failing request in prod, replay locally with all external responses frozen
 - **Offline testing** — Record once, replay without network access
 - **Deterministic CI** — No flaky tests from external service outages
 - **Migration validation** — Record against old API, replay against new, compare responses
 - **Performance testing** — Outbound stubs return instantly (< 1ms vs real network latency)
+
+## Production Bug Reproduction
+
+The most powerful Witness use case: when a bug happens in production, record the exact request (including all outbound call responses), then replay it locally to reproduce the issue deterministically.
+
+### Scenario
+
+Your `/api/orders` endpoint returns 500 in production. It depends on an external payment API and an inventory service. You need to reproduce the bug locally, but you can't replicate the exact state of those external services.
+
+### Step 1: Record the failing request in production
+
+```bash
+# Hit the production endpoint with recording enabled
+curl -X POST https://production.example.com/api/orders \
+  -H "Content-Type: application/json" \
+  -H "X-Witness-Mode: record" \
+  -H "X-Witness-Session: bug-1234" \
+  -H "X-Witness-Tag: repro" \
+  -d '{"productId": 42, "quantity": 1}'
+
+# Response: 500 Internal Server Error
+# Header: X-Witness-Id: repro_POST_api-orders_e78d058d_20260320T1530
+```
+
+The recording now contains:
+- The inbound request and the 500 response
+- **All outbound calls**: the payment API returned `402 Payment Required`, the inventory service returned `200 OK` with `stock: 0`
+- The exact response bodies, headers, and timing
+
+### Step 2: Transfer the recording
+
+```bash
+# Copy from production store to local store
+scp prod:/var/witness-store/sessions/bug-1234/interactions/repro_*.json \
+    ./witness-store/sessions/bug-1234/interactions/
+```
+
+Or if using shared storage / volume mounts, the recording is already accessible.
+
+### Step 3: Replay locally with a debugger attached
+
+```bash
+# Start your API locally with a debugger
+dotnet run --project src/MyApi
+
+# Replay the exact production request
+curl -X POST http://localhost:5000/api/orders \
+  -H "Content-Type: application/json" \
+  -H "X-Witness-Mode: replay" \
+  -H "X-Witness-Id: repro_POST_api-orders_e78d058d_20260320T1530" \
+  -d '{"productId": 42, "quantity": 1}'
+```
+
+What happens:
+1. Your local API receives the same POST request
+2. When it calls the payment API → Witness returns the recorded `402` response (no real HTTP call)
+3. When it calls the inventory service → Witness returns the recorded `200` with `stock: 0`
+4. The same 500 error occurs — you can now step through the code and find the bug
+
+### Step 4: Fix and verify
+
+After fixing the bug, replay the same recording again:
+
+```bash
+# Same replay — should now return 200 or a proper error instead of 500
+curl -X POST http://localhost:5000/api/orders \
+  -H "Content-Type: application/json" \
+  -H "X-Witness-Mode: replay" \
+  -H "X-Witness-Id: repro_POST_api-orders_e78d058d_20260320T1530" \
+  -d '{"productId": 42, "quantity": 1}'
+```
+
+The recording becomes a **permanent regression test** — you can replay it after every deploy to verify the bug stays fixed.
+
+### Why this is better than traditional debugging
+
+| Traditional approach | Witness approach |
+|---|---|
+| "What did the payment API return?" — check logs, hope they're detailed enough | Payment API response is in the recording |
+| Set up mock services with guessed data | External responses are the real production data |
+| Bug doesn't repro locally because external services return different data | Exact same responses, every time |
+| Spend hours building a test fixture | Copy one JSON file |
+| Repro depends on production state that changes | Recording is immutable — works forever |

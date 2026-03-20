@@ -4,11 +4,33 @@
 
 **Witness is an MCP server that gives AI agents the ability to record, replay, and compare HTTP API interactions.**
 
-Think of it as a flight recorder for your REST APIs — controlled by your AI agent, not by you. Every request and response is captured as a structured, replayable artifact that can be diffed against any other recording. The result is machine-readable proof that two systems behave identically.
+Think of it as a flight recorder for your REST APIs — controlled by your AI agent, not by you. Every request and response is captured as a structured, replayable artifact that can be diffed against any other recording.
+
+Record a request in production — including every outbound HTTP call and its response. Replay it locally with all external dependencies stubbed from the recording. The bug reproduces on the first try. The migration diff is automatic. No test scripts to write, no mocks to maintain.
 
 ---
 
 ## Why it exists
+
+### Reproduce production bugs — instantly, deterministically
+
+When a bug surfaces in production, reproducing it locally is the hardest part. The request depends on specific data, timing, and responses from external services that don't exist in your dev environment.
+
+With Witness, you **record the failing request in production** — including every outbound HTTP call your API made and the responses it received. Then you **replay it locally** with all external dependencies stubbed from the recording. Same request, same data, same third-party responses. The bug reproduces on the first try, every time.
+
+```
+Production (record)                     Dev (replay)
+┌──────────────┐                        ┌──────────────┐
+│  POST /orders│                        │  POST /orders│
+│  + payment API response: 402          │  + payment API → 402 (from recording)
+│  + inventory API response: 200        │  + inventory API → 200 (from recording)
+│  = 500 Internal Server Error          │  = 500 Internal Server Error ← reproduced
+└──────────────┘                        └──────────────┘
+```
+
+No mocking frameworks. No test fixtures. No guessing what the external services returned. The recording **is** the repro case.
+
+### Validate API migrations with evidence
 
 Testing API migrations, version upgrades, and backend replacements is tedious and error-prone when done manually. Witness automates the evidence-gathering:
 
@@ -337,6 +359,8 @@ Recordings are stored in `./witness-store/` relative to where the server runs. S
 ---
 
 ## Common use cases
+
+**Production bug reproduction** — Record the failing request in production (with all outbound call responses captured). Replay it in your dev environment — same request, same external responses, bug reproduces on first try. No mocking, no guessing.
 
 **API migration** — Record legacy behavior, replay against the new service, compare. Every difference is visible before you switch traffic.
 

@@ -180,6 +180,58 @@ witness-store/
 2. Ensure `UseWitnessMiddleware()` is in the pipeline
 3. Verify `X-Witness-Mode: record` header is sent
 
+## Production bug reproduction
+
+Witness's most powerful use case is reproducing production bugs locally. Here's the workflow:
+
+### 1. Enable Witness middleware in your production API
+
+```csharp
+app.UseWitnessMiddleware(opt => opt.StorePath = "/var/witness-store");
+```
+
+### 2. Record the failing request in production
+
+When a bug is reported, reproduce the issue with recording enabled:
+
+```bash
+curl -X POST https://production.example.com/api/orders \
+  -H "Content-Type: application/json" \
+  -H "X-Witness-Mode: record" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"productId": 42, "quantity": 1}'
+
+# Returns: X-Witness-Id: bug-repro_POST_api-orders_a3f1b2c4_20260320T1530
+```
+
+This captures the inbound request/response **and** every outbound HTTP call your API made (payment gateway, inventory service, etc.) with their real responses.
+
+### 3. Copy the recording to your dev machine
+
+```bash
+scp production:/var/witness-store/sessions/default/interactions/bug-repro_*.json \
+    ./witness-store/sessions/default/interactions/
+```
+
+### 4. Replay locally
+
+```bash
+curl -X POST http://localhost:5000/api/orders \
+  -H "Content-Type: application/json" \
+  -H "X-Witness-Mode: replay" \
+  -H "X-Witness-Id: bug-repro_POST_api-orders_a3f1b2c4_20260320T1530" \
+  -d '{"productId": 42, "quantity": 1}'
+```
+
+The request executes against your local API, but all outbound calls return the **exact responses from production**. The bug reproduces deterministically — attach a debugger and step through it.
+
+### Why this works
+
+- **No mock setup** — the recording *is* the mock
+- **External dependencies are frozen** — payment APIs, databases-over-HTTP, third-party services all return the same data they did in production
+- **Fully deterministic** — replay the same recording 100 times, get the same result every time
+- **Works offline** — no network access needed after recording
+
 ## Next steps
 
 - [Full specification](witness-mcp-server-spec.md) — Complete tool definitions and data model
