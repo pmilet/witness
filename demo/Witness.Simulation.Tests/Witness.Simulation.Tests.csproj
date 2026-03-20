@@ -19,4 +19,9 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Witness.AspNetCore\Witness.AspNetCore.csproj" />
+    <ProjectReference Include="..\..\src\Witness.Infrastructure\Witness.Infrastructure.csproj" />
+  </ItemGroup>
+
 </Project>
