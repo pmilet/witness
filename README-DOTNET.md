@@ -1,5 +1,10 @@
 # Witness - .NET 9.0 Implementation
 
+> **⚠️ ALPHA VERSION WARNING**  
+> This software is currently in **alpha stage** and under active development.  
+> Features may change, and breaking changes may occur without notice.  
+> Use in production environments at your own risk.
+
 **An MCP server that gives AI agents the power to record, replay, and compare HTTP API interactions.**
 
 This is the .NET 9.0 implementation of the Witness MCP Server, rebuilt from the ground up with Domain-Driven Design (DDD), Clean Code principles, and CQRS pattern.

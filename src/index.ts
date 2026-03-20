@@ -22,6 +22,16 @@ const store = new InteractionStore();
 // Initialize storage on startup
 await store.initialize();
 
+// Log alpha version warning to stderr (doesn't interfere with MCP protocol on stdout)
+console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+console.error('⚠️  WITNESS MCP SERVER - ALPHA VERSION');
+console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+console.error('This software is in ALPHA stage and under active development.');
+console.error('Features may change, and breaking changes may occur without notice.');
+console.error('Use in production environments at your own risk.');
+console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+console.error('');
+
 const context: ToolContext = {
   executor,
   store
@@ -31,7 +41,7 @@ const context: ToolContext = {
 const server = new Server(
   {
     name: 'witness-mcp',
-    version: '0.1.0',
+    version: '0.1.0-alpha',
   },
   {
     capabilities: {
