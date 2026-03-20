@@ -43,6 +43,14 @@ The solution follows a clean, layered DDD architecture:
 │    - FileSystemInteractionRepository                      │
 │    - FileSystemSessionRepository                          │
 │    - HttpExecutorService (with Polly retry policies)      │
+└───────────────────┬──────────────────────────────────────┘
+                    │
+┌───────────────────▼──────────────────────────────────────┐
+│           Witness.AspNetCore (ASP.NET Integration)        │
+│    - WitnessCaptureHandler (outbound HTTP capture)        │
+│    - WitnessMiddleware (record/replay with correlation)   │
+│    - WitnessCallContext (AsyncLocal correlation)          │
+│    - ServiceCollectionExtensions (DI helpers)             │
 └───────────────────────────────────────────────────────────┘
 ```
 
@@ -182,10 +190,25 @@ Witness/
 │   ├── McpTools/                    # MCP tool definitions
 │   │   └── McpToolDefinitions.cs
 │   └── appsettings.json             # Configuration
+├── Witness.AspNetCore/              # ASP.NET Core integration
+│   ├── WitnessCaptureHandler.cs     # DelegatingHandler for outbound capture
+│   ├── WitnessCallContext.cs        # AsyncLocal correlation context
+│   ├── WitnessMiddleware.cs         # Record/replay middleware
+│   ├── WitnessMiddlewareOptions.cs  # Middleware options
+│   ├── WitnessCaptureOptions.cs     # Capture handler options
+│   └── ServiceCollectionExtensions.cs # DI extensions
 ├── Witness.Domain.Tests/            # Domain unit tests
 ├── Witness.Application.Tests/       # Application unit tests
 ├── Witness.Infrastructure.Tests/    # Infrastructure unit tests
-└── Witness.Integration.Tests/       # End-to-end tests
+├── Witness.Integration.Tests/       # End-to-end tests
+│
+demo/
+├── Witness.DemoApi/                 # Sample API for testing
+│   ├── Program.cs                   # Minimal API with outbound calls
+│   ├── Dockerfile                   # Multi-stage Docker build
+│   └── Witness.DemoApi.csproj
+├── docker-compose.yml               # Docker setup
+└── docker/                          # Legacy/modern demo APIs (Node.js)
 ```
 
 ---
@@ -258,6 +281,70 @@ List sessions or interactions.
 **Returns:**
 - When listing sessions: `{ count, total, sessions: [...] }`
 - When listing interactions: `{ sessionId, count, total, interactions: [...] }`
+
+---
+
+## Witness.AspNetCore Library
+
+The `Witness.AspNetCore` package provides integration for ASP.NET Core applications with two key components:
+
+### Outbound Capture (`WitnessCaptureHandler`)
+
+A `DelegatingHandler` that transparently captures all outbound HTTP calls made through an `HttpClient`:
+
+```csharp
+builder.Services.AddHttpClient("external-api")
+    .AddWitnessCapture(opt =>
+    {
+        opt.SessionId = "my-session";
+        opt.Tag = "outbound";
+        opt.StorePath = "./witness-store";
+    });
+```
+
+### Record/Replay Middleware (`WitnessMiddleware`)
+
+ASP.NET middleware that enables recording and replaying of inbound requests with correlated outbound calls:
+
+```csharp
+app.UseWitnessMiddleware(opt => opt.StorePath = "./witness-store");
+```
+
+**Record mode** (`X-Witness-Mode: record`):
+1. Sets up `AsyncLocal` correlation context
+2. All outbound `HttpClient` calls are captured by `WitnessCaptureHandler`
+3. After the response, stores the complete interaction including `OutboundCalls`
+4. Returns the `WitnessId` in the `X-Witness-Id` response header
+
+**Replay mode** (`X-Witness-Mode: replay` + `X-Witness-Id: {id}`):
+1. Loads the previously recorded interaction from the store
+2. Populates a playback queue with the recorded `OutboundCalls`
+3. All outbound `HttpClient` calls return recorded responses from the queue
+4. No real HTTP calls are made — fully deterministic
+
+### Request Headers
+
+| Header | Value | Description |
+|--------|-------|-------------|
+| `X-Witness-Mode` | `record` or `replay` | Activates the middleware |
+| `X-Witness-Id` | WitnessId string | Required for replay; returned in record |
+| `X-Witness-Session` | Session name | Optional session grouping |
+| `X-Witness-Tag` | Tag string | Optional tag for the WitnessId |
+
+### Demo API
+
+The `demo/Witness.DemoApi` project provides a working example with products, orders, and user profile endpoints that make outbound HTTP calls to JSONPlaceholder.
+
+Run locally:
+```bash
+dotnet run --project demo/Witness.DemoApi/Witness.DemoApi.csproj
+```
+
+Run with Docker:
+```bash
+cd demo && docker compose up demo-api -d
+# Available at http://localhost:5080
+```
 
 ---
 
@@ -395,7 +482,7 @@ The .NET implementation is a complete rewrite maintaining functional parity with
 - [ ] Mock server from recorded interactions
 - [ ] Azure Blob Storage provider
 - [ ] Performance benchmarks
-- [ ] Docker container image
+- [x] Docker container image
 - [ ] NuGet package publication
 
 ---

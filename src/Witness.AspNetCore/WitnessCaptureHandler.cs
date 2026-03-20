@@ -43,6 +43,15 @@ public sealed class WitnessCaptureHandler : DelegatingHandler
         HttpRequestMessage request,
         CancellationToken cancellationToken)
     {
+        var ctx = WitnessCallContext.Current;
+
+        // ── Replay mode: return recorded response without making a real call ──
+        if (ctx?.Mode == WitnessMode.Replay && ctx.PlaybackQueue.Count > 0)
+        {
+            var recorded = ctx.PlaybackQueue.Dequeue();
+            return BuildHttpResponseMessage(recorded.Response);
+        }
+
         var stopwatch = Stopwatch.StartNew();
 
         // ── Snapshot request body before forwarding ────────────────────────
@@ -108,6 +117,30 @@ public sealed class WitnessCaptureHandler : DelegatingHandler
         var interaction = Interaction.Create(witnessId, _options.SessionId, domainRequest, domainResponse, metadata);
 
         await _repository.SaveAsync(interaction, cancellationToken);
+
+        // ── Record mode: also collect into the correlation context ──────────
+        if (ctx?.Mode == WitnessMode.Record)
+        {
+            ctx.CapturedOutbound.Add(interaction);
+        }
+
+        return response;
+    }
+
+    /// <summary>
+    /// Reconstructs an HttpResponseMessage from a recorded domain response.
+    /// </summary>
+    private static HttpResponseMessage BuildHttpResponseMessage(Witness.Domain.ValueObjects.HttpResponse recorded)
+    {
+        var response = new HttpResponseMessage((System.Net.HttpStatusCode)recorded.StatusCode);
+
+        if (recorded.Body is not null)
+        {
+            var json = recorded.Body is JsonElement el
+                ? el.GetRawText()
+                : JsonSerializer.Serialize(recorded.Body);
+            response.Content = new StringContent(json, Encoding.UTF8, "application/json");
+        }
 
         return response;
     }

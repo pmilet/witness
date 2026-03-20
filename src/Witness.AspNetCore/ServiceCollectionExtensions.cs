@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Witness.AspNetCore;
@@ -19,5 +20,19 @@ public static class ServiceCollectionExtensions
         configure?.Invoke(options);
 
         return builder.AddHttpMessageHandler(() => new WitnessCaptureHandler(options));
+    }
+
+    /// <summary>
+    /// Adds the Witness middleware to the request pipeline.
+    /// This enables record/replay of inbound requests with outbound call capture.
+    /// </summary>
+    public static IApplicationBuilder UseWitnessMiddleware(
+        this IApplicationBuilder app,
+        Action<WitnessMiddlewareOptions>? configure = null)
+    {
+        var options = new WitnessMiddlewareOptions();
+        configure?.Invoke(options);
+
+        return app.UseMiddleware<WitnessMiddleware>(options);
     }
 }

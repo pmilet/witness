@@ -14,3 +14,14 @@ services:
     command: node /app.js
     ports:
       - "3002:3002"
+  demo-api:
+    build:
+      context: ..
+      dockerfile: demo/Witness.DemoApi/Dockerfile
+    ports:
+      - "5080:8080"
+    volumes:
+      - demo-witness-store:/app/witness-store
+
+volumes:
+  demo-witness-store:

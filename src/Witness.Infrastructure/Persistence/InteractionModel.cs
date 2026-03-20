@@ -8,6 +8,7 @@ public sealed class InteractionModel
     public HttpRequestModel Request { get; set; } = null!;
     public HttpResponseModel Response { get; set; } = null!;
     public InteractionMetadataModel Metadata { get; set; } = null!;
+    public List<InteractionModel>? OutboundCalls { get; set; }
 }
 
 public sealed class HttpRequestModel

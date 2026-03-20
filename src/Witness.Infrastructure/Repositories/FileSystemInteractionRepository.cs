@@ -158,7 +158,10 @@ public sealed class FileSystemInteractionRepository : IInteractionRepository
                 OpenApiOperationId = interaction.Metadata.OpenApiOperationId,
                 ChainStep = interaction.Metadata.ChainStep,
                 ChainId = interaction.Metadata.ChainId
-            }
+            },
+            OutboundCalls = interaction.OutboundCalls?
+                .Select(MapToModel)
+                .ToList()
         };
     }
 
@@ -188,12 +191,17 @@ public sealed class FileSystemInteractionRepository : IInteractionRepository
             model.Metadata.ChainStep,
             model.Metadata.ChainId);
 
+        var outboundCalls = model.OutboundCalls?
+            .Select(MapFromModel)
+            .ToList();
+
         return Interaction.Recreate(
             witnessId,
             model.SessionId,
             model.Timestamp,
             request,
             response,
-            metadata);
+            metadata,
+            outboundCalls);
     }
 }

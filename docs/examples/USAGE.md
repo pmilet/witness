@@ -5,7 +5,7 @@ This document provides examples of how to use the Witness MCP Server tools.
 ## Prerequisites
 
 Make sure you have:
-1. Installed the Witness MCP Server: `npm install -g @pmilet/witness-mcp`
+1. Built the Witness MCP Server: `dotnet build src/Witness.slnx`
 2. Configured it in your MCP client (Claude Desktop, VS Code with GitHub Copilot, etc.)
 
 ## Basic Usage
@@ -182,3 +182,87 @@ witness-store/
 ```
 
 You can configure the storage path in `witness.config.json`.
+
+## Outbound Record/Replay
+
+If your API makes outbound HTTP calls to external services, Witness can capture those calls during recording and stub them during replay.
+
+### Setup
+
+Your API needs `Witness.AspNetCore` integration:
+
+```csharp
+// Register outbound capture
+builder.Services.AddHttpClient("external-api")
+    .AddWitnessCapture(opt => opt.SessionId = "my-session");
+
+// Add record/replay middleware
+app.UseWitnessMiddleware(opt => opt.StorePath = "./witness-store");
+```
+
+### Record with outbound capture
+
+Send a request with the `X-Witness-Mode: record` header:
+
+```
+Agent: Use witness/record to POST http://localhost:5000/api/orders
+       with body {"productId": 1, "quantity": 2}
+       and header X-Witness-Mode: record
+```
+
+Or with curl:
+```bash
+curl -X POST http://localhost:5000/api/orders \
+  -H "Content-Type: application/json" \
+  -H "X-Witness-Mode: record" \
+  -d '{"productId": 1, "quantity": 2}'
+
+# Response header: X-Witness-Id: demo-order_POST_api-orders_e78d058d_20260320T2132
+```
+
+The stored interaction now includes an `OutboundCalls` array with all HTTP calls the API made during processing.
+
+### Replay with stubbed outbound calls
+
+Send the same request with `X-Witness-Mode: replay` and the recorded `X-Witness-Id`:
+
+```bash
+curl -X POST http://localhost:5000/api/orders \
+  -H "Content-Type: application/json" \
+  -H "X-Witness-Mode: replay" \
+  -H "X-Witness-Id: demo-order_POST_api-orders_e78d058d_20260320T2132" \
+  -d '{"productId": 1, "quantity": 2}'
+```
+
+During replay:
+- The API processes the request normally
+- When it tries to make outbound HTTP calls, `WitnessCaptureHandler` intercepts them
+- Instead of real HTTP calls, the recorded responses are returned from the playback queue
+- The result is fully deterministic — no external dependencies needed
+
+### Inspect the recorded outbound calls
+
+```
+Agent: Use witness/inspect to view demo-order_POST_api-orders_e78d058d_20260320T2132
+```
+
+The interaction JSON includes:
+```json
+{
+  "WitnessId": "demo-order_POST_api-orders_e78d058d_20260320T2132",
+  "OutboundCalls": [
+    {
+      "WitnessId": "outbound_GET_posts-1-comments_00000000_20260320T2132",
+      "Request": { "Method": "GET", "Path": "/posts/1/comments" },
+      "Response": { "StatusCode": 200, "Body": [...] }
+    }
+  ]
+}
+```
+
+### Use cases for outbound record/replay
+
+- **Offline testing** — Record once, replay without network access
+- **Deterministic CI** — No flaky tests from external service outages
+- **Migration validation** — Record against old API, replay against new, compare responses
+- **Performance testing** — Outbound stubs return instantly (< 1ms vs real network latency)

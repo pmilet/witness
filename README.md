@@ -53,6 +53,47 @@ The same request always produces the same ID, which makes recordings referenceab
 
 ---
 
+## Outbound capture and replay
+
+Witness also includes an ASP.NET Core library (`Witness.AspNetCore`) that enables **recording and replaying outbound HTTP calls** made by your API during request processing.
+
+```
+┌─── RECORD ──────────────────────────────────────────────┐
+│                                                          │
+│  Inbound request → API processes it                      │
+│    ├─ Outbound call #1 → real HTTP → response captured   │
+│    └─ Outbound call #2 → real HTTP → response captured   │
+│  All captured as Interaction.OutboundCalls                │
+│                                                          │
+└──────────────────────────────────────────────────────────┘
+
+┌─── REPLAY ──────────────────────────────────────────────┐
+│                                                          │
+│  Inbound request → API processes it                      │
+│    ├─ Outbound call #1 → intercepted → recorded response │
+│    └─ Outbound call #2 → intercepted → recorded response │
+│  No real HTTP calls — fully deterministic                │
+│                                                          │
+└──────────────────────────────────────────────────────────┘
+```
+
+This is driven by request headers:
+- `X-Witness-Mode: record` — execute outbound calls normally and capture responses
+- `X-Witness-Mode: replay` + `X-Witness-Id: {id}` — stub outbound calls with recorded responses
+
+### Integration
+
+```csharp
+// Register outbound capture on an HttpClient
+builder.Services.AddHttpClient("external-api")
+    .AddWitnessCapture(opt => opt.SessionId = "my-session");
+
+// Enable the record/replay middleware
+app.UseWitnessMiddleware(opt => opt.StorePath = "./witness-store");
+```
+
+---
+
 ## Example: validating an API migration
 
 Say you are migrating an orders API from a legacy system to a modern one. The schemas changed — `order_id` became `orderId`, `status: "pending"` became `state: "created"` — but both endpoints accept the same request and return HTTP 201.
@@ -263,7 +304,21 @@ dotnet build src/Witness.slnx
 }
 ```
 
-### 3. Use it
+### 3. Try the demo API
+
+```bash
+cd demo
+docker compose up demo-api -d
+
+# The API is now running at http://localhost:5080
+# Record an order (with outbound call to JSONPlaceholder):
+curl -X POST http://localhost:5080/api/orders \
+  -H "Content-Type: application/json" \
+  -H "X-Witness-Mode: record" \
+  -d '{"productId": 1, "quantity": 2}'
+```
+
+### 4. Use it
 
 Recordings are stored in `./witness-store/` relative to where the server runs. Sessions group related interactions. Point your agent at any HTTP API and start recording.
 
@@ -291,14 +346,23 @@ Recordings are stored in `./witness-store/` relative to where the server runs. S
 
 **Offline development** — Record interactions with a third-party API once, then replay from recordings. No network, no rate limits, no costs.
 
+**Outbound dependency stubbing** — Record your API's behavior including all outbound HTTP calls. Replay the same request with outbound calls stubbed from recordings. Fully deterministic, offline-capable testing.
+
 ---
 
 ## Repository layout
 
 ```
-src/    .NET 9.0 solution (Domain, Application, Infrastructure, McpServer)
-demo/   Simulation test with two Docker APIs illustrating a migration scenario
-docs/   Full documentation, spec, quickstart, and usage examples
+src/                   .NET 9.0 solution
+  Witness.Domain/      Core domain (Interaction, WitnessId, HttpRequest/Response)
+  Witness.Application/ CQRS commands and queries (Record, Replay, Inspect, List)
+  Witness.Infrastructure/ Storage, HTTP execution
+  Witness.AspNetCore/  ASP.NET Core library (outbound capture + record/replay middleware)
+  Witness.McpServer/   MCP server host
+demo/
+  Witness.DemoApi/     Sample API demonstrating inbound + outbound capture
+  docker-compose.yml   Docker setup for demo APIs
+docs/                  Documentation, spec, quickstart
 ```
 
 See [docs/QUICKSTART.md](docs/QUICKSTART.md) for a detailed setup guide and [docs/witness-mcp-server-spec.md](docs/witness-mcp-server-spec.md) for the full specification.

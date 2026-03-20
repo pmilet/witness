@@ -5,255 +5,171 @@
 ```
 witness/
 ├── src/
-│   ├── index.ts              # Main MCP server entry point
-│   ├── types/
-│   │   └── index.ts          # TypeScript interfaces and types
-│   ├── core/
-│   │   ├── witnessId.ts      # WitnessId generation logic
-│   │   └── httpExecutor.ts   # HTTP request execution
-│   ├── storage/
-│   │   └── interactionStore.ts # Local filesystem storage
-│   └── tools/
-│       └── index.ts          # MCP tool implementations
-├── dist/                     # Compiled JavaScript (generated)
-├── examples/                 # Usage examples
-├── package.json
-├── tsconfig.json
-└── witness.config.json       # Configuration example
-
+│   ├── Witness.Domain/              # Core domain logic
+│   │   ├── Entities/                # Interaction, Session, InteractionMetadata
+│   │   ├── ValueObjects/            # WitnessId, HttpRequest, HttpResponse
+│   │   ├── Repositories/            # IInteractionRepository, ISessionRepository
+│   │   └── Services/                # IHttpExecutor
+│   ├── Witness.Application/         # CQRS use cases
+│   │   ├── Commands/                # RecordInteraction, ReplayInteraction
+│   │   ├── Queries/                 # InspectInteraction, ListSessions
+│   │   ├── DTOs/                    # Data transfer objects
+│   │   └── Validators/              # FluentValidation validators
+│   ├── Witness.Infrastructure/      # External concerns
+│   │   ├── Services/                # HttpExecutorService (with Polly)
+│   │   ├── Repositories/            # FileSystem repositories
+│   │   ├── Persistence/             # InteractionModel, SessionModel
+│   │   └── Configuration/           # WitnessOptions
+│   ├── Witness.AspNetCore/          # ASP.NET Core integration
+│   │   ├── WitnessCaptureHandler.cs # Outbound HTTP capture
+│   │   ├── WitnessCallContext.cs    # AsyncLocal correlation
+│   │   ├── WitnessMiddleware.cs     # Record/replay middleware
+│   │   └── ServiceCollectionExtensions.cs
+│   ├── Witness.McpServer/           # MCP server host
+│   ├── Witness.Domain.Tests/        # Domain unit tests
+│   ├── Witness.Application.Tests/   # Application unit tests
+│   ├── Witness.Infrastructure.Tests/ # Infrastructure tests
+│   └── Witness.Integration.Tests/   # End-to-end tests
+├── demo/
+│   ├── Witness.DemoApi/             # Sample API for testing
+│   ├── docker-compose.yml           # Docker setup
+│   └── docker/                      # Legacy/modern Node.js demo APIs
+└── docs/                            # Documentation
 ```
+
+## Prerequisites
+
+- [.NET 9.0 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
+- Docker (optional, for demo)
 
 ## Development Setup
 
-### Prerequisites
-- Node.js 18 or higher
-- npm or yarn
-
-### Installation
-
-1. Clone the repository:
 ```bash
 git clone https://github.com/pmilet/witness.git
 cd witness
+dotnet build src/Witness.slnx
+dotnet test src/Witness.slnx
 ```
 
-2. Install dependencies:
+## Running the MCP Server
+
 ```bash
-npm install
+dotnet run --project src/Witness.McpServer/Witness.McpServer.csproj
 ```
 
-3. Build the project:
-```bash
-npm run build
-```
+## Running the Demo API
 
-### Development Workflow
-
-**Watch mode** (automatically rebuilds on changes):
 ```bash
-npm run dev
-```
+# Locally
+dotnet run --project demo/Witness.DemoApi/Witness.DemoApi.csproj
 
-**Build**:
-```bash
-npm run build
-```
-
-**Test locally**:
-```bash
-node dist/index.js
+# With Docker
+cd demo && docker compose up demo-api -d
 ```
 
 ## Architecture
 
 ### Core Components
 
-1. **HttpExecutor** (`src/core/httpExecutor.ts`)
-   - Executes HTTP requests using axios
-   - Measures response time
-   - Handles errors gracefully
-   - Supports all HTTP methods
+1. **Witness.Domain** — Aggregate roots (`Interaction`, `Session`), value objects (`WitnessId`, `HttpRequest`, `HttpResponse`), repository interfaces, and domain services.
 
-2. **WitnessId Generator** (`src/core/witnessId.ts`)
-   - Creates deterministic, human-readable IDs
-   - Uses SHA-256 for body hashing
-   - Truncates path slugs to 60 characters
-   - Format: `{tag}_{method}_{path-slug}_{body-hash}_{timestamp}`
+2. **Witness.Application** — CQRS command/query handlers using MediatR. Commands: `RecordInteraction`, `ReplayInteraction`. Queries: `InspectInteraction`, `ListSessions`, `ListInteractions`.
 
-3. **InteractionStore** (`src/storage/interactionStore.ts`)
-   - Manages local filesystem storage
-   - Organizes data by sessions
-   - Maintains session metadata
-   - Supports listing and searching
+3. **Witness.Infrastructure** — `HttpExecutorService` (HTTP client with Polly retry), `FileSystemInteractionRepository`, `FileSystemSessionRepository`, configuration via Options pattern.
 
-4. **MCP Tools** (`src/tools/index.ts`)
-   - witness/record - Execute and capture interactions
-   - witness/replay - Replay recorded interactions
-   - witness/inspect - View interaction details
-   - witness/list - Browse sessions and interactions
+4. **Witness.AspNetCore** — ASP.NET Core integration library:
+   - `WitnessCaptureHandler` — `DelegatingHandler` that captures outbound `HttpClient` calls
+   - `WitnessMiddleware` — Middleware for record/replay with outbound call correlation
+   - `WitnessCallContext` — `AsyncLocal`-based correlation context (Record/Replay modes)
+   - Extension methods: `AddWitnessCapture()`, `UseWitnessMiddleware()`
+
+5. **Witness.McpServer** — MCP protocol host exposing tools via JSON-RPC 2.0 over STDIO.
+
+### Key Design Patterns
+
+- **Domain-Driven Design**: Bounded contexts, aggregates, value objects
+- **CQRS**: Commands for writes, queries for reads via MediatR
+- **Repository Pattern**: Abstraction over storage
+- **AsyncLocal Correlation**: Links outbound calls to parent inbound requests
+- **DelegatingHandler**: Transparent outbound HTTP interception
 
 ### Data Model
 
-**Interaction** - Core data structure for recorded HTTP interactions:
-```typescript
-{
-  witnessId: string;
-  sessionId: string;
-  timestamp: string;
-  request: {
-    method: string;
-    url: string;
-    path: string;
-    headers: Record<string, string>;
-    body?: any;
-    contentType?: string;
-  };
-  response: {
-    statusCode: number;
-    headers: Record<string, string>;
-    body?: any;
-    contentType?: string;
-    durationMs: number;
-  };
-  metadata: {
-    tags: string[];
-    description?: string;
-    openApiOperationId?: string;
-    chainStep?: number;
-    chainId?: string;
-  };
-}
+```csharp
+Interaction
+├── Id: WitnessId                    // Deterministic identifier
+├── SessionId: string                // Session grouping
+├── Timestamp: DateTime
+├── Request: HttpRequest             // Method, URL, path, headers, body
+├── Response: HttpResponse           // Status, headers, body, duration
+├── Metadata: InteractionMetadata    // Tags, description, chain info
+└── OutboundCalls: List<Interaction>? // Captured outbound calls (record/replay)
 ```
 
 ## Testing
 
-### Manual Testing with MCP Inspector
-
-1. Install MCP Inspector:
 ```bash
-npx @modelcontextprotocol/inspector dist/index.js
+# Run all tests
+dotnet test src/Witness.slnx
+
+# Run specific test project
+dotnet test src/Witness.Domain.Tests/
+dotnet test src/Witness.Application.Tests/
+dotnet test src/Witness.Infrastructure.Tests/
+
+# Run with verbose output
+dotnet test src/Witness.slnx --verbosity normal
 ```
 
-2. This will open a web interface where you can:
-   - Test tool calls
-   - Inspect request/response
-   - Debug issues
+## Adding a New Command
 
-### Integration Testing
+1. Create command and result records in `Witness.Application/Commands/`
+2. Create handler implementing `IRequestHandler<TCommand, TResult>`
+3. Add validator in `Witness.Application/Validators/`
+4. Register the MCP tool in `Witness.McpServer/McpTools/McpToolDefinitions.cs`
+5. Write unit tests with mocked dependencies
 
-You can test the tools manually by configuring them in an MCP client:
+## Adding a New Query
 
-**Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
-```json
-{
-  "mcpServers": {
-    "witness": {
-      "command": "node",
-      "args": ["/path/to/witness/dist/index.js"]
-    }
-  }
-}
-```
+1. Create query and result records in `Witness.Application/Queries/`
+2. Create handler implementing `IRequestHandler<TQuery, TResult>`
+3. Register in MCP tool definitions
+4. Write unit tests
 
-**VS Code (GitHub Copilot)** (`.vscode/mcp.json`):
-```json
-{
-  "mcp": {
-    "servers": {
-      "witness": {
-        "command": "node",
-        "args": ["./dist/index.js"]
-      }
-    }
-  }
-}
-```
+## Extending Storage
 
-### Test Against Real APIs
+To add a new storage provider (e.g., Azure Blob Storage):
+
+1. Implement `IInteractionRepository` and `ISessionRepository`
+2. Register in DI based on configuration
+3. Update `WitnessOptions` configuration class
+
+## Test Against Real APIs
 
 Use free test APIs for development:
 - JSONPlaceholder: https://jsonplaceholder.typicode.com
 - ReqRes: https://reqres.in/api
 - httpbin: https://httpbin.org
 
-## Contributing
+## Docker
 
-### Code Style
+### Build the demo API image
 
-- Use TypeScript strict mode
-- Follow existing naming conventions
-- Add JSDoc comments for public APIs
-- Keep functions focused and small
-
-### Adding New Tools
-
-1. Define the tool in `src/index.ts` TOOLS array
-2. Implement the handler in `src/tools/index.ts`
-3. Update documentation in `examples/USAGE.md`
-
-Example:
-```typescript
-// In src/index.ts
-{
-  name: 'witness/new-tool',
-  description: 'Description of what the tool does',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      param1: { type: 'string', description: '...' }
-    },
-    required: ['param1']
-  }
-}
-
-// In src/tools/index.ts
-export async function newTool(args: any, context: ToolContext) {
-  // Implementation
-}
-
-// In src/index.ts CallToolRequestSchema handler
-case 'witness/new-tool':
-  return await newTool(args, context);
+```bash
+cd demo && docker compose build demo-api
 ```
 
-## Roadmap
+### Run all demo services
 
-### Phase 1 (Current - v0.1.0) ✓
-- [x] Core infrastructure
-- [x] witness/record
-- [x] witness/replay
-- [x] witness/inspect
-- [x] witness/list
+```bash
+cd demo && docker compose up -d
+```
 
-### Phase 2 (v0.2.0)
-- [ ] witness/compare with diff engine
-- [ ] Configurable comparison tolerances
-- [ ] Performance tracking
-
-### Phase 3 (v0.3.0)
-- [ ] witness/chain for multi-step flows
-- [ ] Variable extraction and substitution
-- [ ] Step assertions
-
-### Phase 4 (v0.4.0)
-- [ ] witness/discover (OpenAPI parsing)
-- [ ] witness/generate (AI scenario generation)
-
-### Phase 5 (v0.5.0)
-- [ ] witness/suite-run (batch execution)
-- [ ] witness/mock (mock server)
-
-## Troubleshooting
-
-### "Module not found" errors
-Make sure you've run `npm run build` after making changes.
-
-### MCP server won't start
-Check stderr output: `node dist/index.js 2>&1`
-
-### Storage issues
-Delete `witness-store/` and restart to reset storage.
+This starts:
+- `demo-api` (port 5080) — .NET demo API with outbound capture
+- `legacy-api` (port 3001) — Node.js legacy API
+- `modern-api` (port 3002) — Node.js modern API
 
 ## License
 
-Apache-2.0 - See LICENSE file for details.
+Apache-2.0 — See LICENSE file for details.

@@ -1,161 +1,158 @@
 # Witness MCP Server - Quick Start Guide
 
-> **⚠️ ALPHA VERSION WARNING**  
-> This software is currently in **alpha stage** and under active development.  
-> Features may change, and breaking changes may occur without notice.  
-> Use in production environments at your own risk.
+> ⚠️ Alpha — under active development. Breaking changes may occur.
 
-## Installation
+## Prerequisites
 
-### From Source
+- [.NET 9.0 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
+- Docker (optional, for the demo API)
 
-1. **Clone the repository:**
+## Build from source
+
 ```bash
 git clone https://github.com/pmilet/witness.git
 cd witness
+dotnet build src/Witness.slnx
 ```
 
-2. **Install dependencies:**
-```bash
-npm install
-```
+## Configure your MCP client
 
-3. **Build the project:**
-```bash
-npm run build
-```
+### Claude Desktop / Claude Code
 
-4. **Test the installation:**
-```bash
-npm test
-```
-
-### Using npx (Future)
-
-Once published to npm:
-```bash
-npx @pmilet/witness-mcp
-```
-
-## Configuration
-
-### For Claude Desktop
-
-Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
-
+Add to your MCP config:
 ```json
 {
   "mcpServers": {
     "witness": {
-      "command": "node",
-      "args": ["/absolute/path/to/witness/dist/index.js"]
+      "command": "dotnet",
+      "args": ["run", "--project", "/absolute/path/to/witness/src/Witness.McpServer/Witness.McpServer.csproj", "--no-build"]
     }
   }
 }
 ```
 
-### For VS Code with GitHub Copilot
+### VS Code (GitHub Copilot)
 
-Create `.vscode/mcp.json` in your workspace:
-
+Add to `.vscode/mcp.json`:
 ```json
 {
-  "mcp": {
-    "servers": {
-      "witness": {
-        "command": "node",
-        "args": ["./dist/index.js"]
-      }
+  "servers": {
+    "witness": {
+      "command": "dotnet",
+      "args": ["run", "--project", "/absolute/path/to/witness/src/Witness.McpServer/Witness.McpServer.csproj", "--no-build"]
     }
   }
 }
 ```
 
-### For Other MCP Clients
+## First steps
 
-Use the standard MCP server configuration with:
-- **Command:** `node`
-- **Args:** `["/path/to/witness/dist/index.js"]`
-- **Transport:** stdio
-
-## First Steps
-
-After configuring your MCP client, try these commands:
-
-### 1. List Available Tools
+### 1. Record an interaction
 
 Ask your AI agent:
-> "What tools are available from the witness server?"
-
-You should see:
-- witness/record
-- witness/replay
-- witness/inspect
-- witness/list
-
-### 2. Record Your First Interaction
-
-Ask your AI agent:
-> "Use witness/record to call GET https://api.example.com/users/1"
+> "Use witness/record to call GET https://jsonplaceholder.typicode.com/posts/1"
 
 This will:
 - Execute the HTTP request
-- Capture the response
-- Store the interaction
-- Return a WitnessId
+- Capture the full request and response
+- Store the interaction as a JSON file
+- Return a `WitnessId` like `interaction_GET_posts-1_00000000_20260320T1437`
 
-### 3. List Recorded Sessions
+### 2. List recorded sessions
 
 > "Use witness/list to show all recorded sessions"
 
-### 4. Inspect an Interaction
+### 3. Inspect an interaction
 
-> "Use witness/inspect to view the details of WitnessId: {the-id-from-step-2}"
+> "Use witness/inspect to view the details of WitnessId: {the-id-from-step-1}"
 
-### 5. Replay an Interaction
+### 4. Replay against a different target
 
-> "Use witness/replay to replay that same request against https://api-v2.example.com"
+> "Use witness/replay to replay that request against https://other-api.example.com"
 
-## Configuration Options
+## Using the Demo API
 
-Create `witness.config.json` in your working directory:
+The demo API demonstrates both inbound recording and outbound call capture.
 
-```json
-{
-  "witness": {
-    "storage": {
-      "type": "local",
-      "path": "./witness-store"
-    },
-    "defaults": {
-      "timeoutMs": 30000,
-      "followRedirects": true
-    }
-  }
-}
+### Run locally
+
+```bash
+dotnet run --project demo/Witness.DemoApi/Witness.DemoApi.csproj
+# Runs on http://localhost:5000
 ```
 
-## Common Use Cases
+### Run with Docker
 
-### API Testing
+```bash
+cd demo
+docker compose up demo-api -d
+# Runs on http://localhost:5080
+```
 
-Record interactions as you develop, then replay them after changes to verify behavior hasn't changed.
+### Demo API endpoints
 
-### API Migration
+| Endpoint | Type | Description |
+|----------|------|-------------|
+| `GET /api/products` | Inbound only | List products |
+| `GET /api/products/{id}` | Inbound only | Get a product |
+| `GET /api/users/{id}/profile` | Inbound + Outbound | Fetches from JSONPlaceholder |
+| `POST /api/orders` | Inbound + Outbound | Creates order, fetches reviews |
 
-Record all interactions with the old API, then replay them against the new API to verify compatibility.
+### Record with outbound capture
 
-### Environment Validation
+```bash
+curl -X POST http://localhost:5000/api/orders \
+  -H "Content-Type: application/json" \
+  -H "X-Witness-Mode: record" \
+  -d '{"productId": 1, "quantity": 2}'
 
-Record interactions in one environment (dev), replay in another (staging, production) to ensure consistency.
+# Response includes X-Witness-Id header with the recording ID
+```
 
-### Offline Development
+### Replay with stubbed outbound calls
 
-Record interactions with third-party APIs, then work offline using the recorded responses.
+```bash
+curl -X POST http://localhost:5000/api/orders \
+  -H "Content-Type: application/json" \
+  -H "X-Witness-Mode: replay" \
+  -H "X-Witness-Id: {id-from-record}" \
+  -d '{"productId": 1, "quantity": 2}'
+
+# Outbound calls return recorded responses — no real HTTP calls made
+```
+
+## Integrating Witness.AspNetCore in your own API
+
+### 1. Add the project reference
+
+```xml
+<ProjectReference Include="path/to/Witness.AspNetCore/Witness.AspNetCore.csproj" />
+```
+
+### 2. Register outbound capture on your HttpClient
+
+```csharp
+builder.Services.AddHttpClient("my-api")
+    .AddWitnessCapture(opt =>
+    {
+        opt.SessionId = "my-session";
+        opt.Tag = "outbound";
+    });
+```
+
+### 3. Add the record/replay middleware
+
+```csharp
+app.UseWitnessMiddleware(opt => opt.StorePath = "./witness-store");
+```
+
+Now your API supports:
+- `X-Witness-Mode: record` — captures all outbound calls with the inbound interaction
+- `X-Witness-Mode: replay` + `X-Witness-Id` — stubs outbound calls with recorded responses
 
 ## Storage
 
-By default, all interactions are stored in `./witness-store/`:
+Interactions are stored in `./witness-store/`:
 
 ```
 witness-store/
@@ -163,38 +160,28 @@ witness-store/
     └── {sessionId}/
         ├── session.json
         └── interactions/
-            └── {witnessId}.json
+            └── {witnessId}.json    # includes OutboundCalls when recorded
 ```
-
-You can browse these files directly if needed, though the `witness/list` and `witness/inspect` tools provide a better interface.
 
 ## Troubleshooting
 
 ### Server won't start
-
-1. Check that you've built the project: `npm run build`
-2. Verify the path in your MCP client configuration
-3. Check stderr output for error messages
+1. Verify .NET 9.0 SDK is installed: `dotnet --version`
+2. Build first: `dotnet build src/Witness.slnx`
+3. Check the path in your MCP client configuration
 
 ### Tool calls fail
-
-1. Check network connectivity
+1. Check network connectivity to the target API
 2. Verify the target URL is accessible
-3. Look at the error message in the response
+3. Check the error message in the response
 
-### Storage issues
+### Outbound capture not working
+1. Ensure `AddWitnessCapture()` is registered on the HttpClient
+2. Ensure `UseWitnessMiddleware()` is in the pipeline
+3. Verify `X-Witness-Mode: record` header is sent
 
-1. Ensure you have write permissions in the current directory
-2. Check available disk space
-3. Try deleting `./witness-store/` to reset
+## Next steps
 
-## Next Steps
-
-- Read the [full specification](witness-mcp-server-spec.md) for details
-- See [usage examples](examples/USAGE.md) for more scenarios
-- Check [development guide](DEVELOPMENT.md) if you want to contribute
-
-## Support
-
-- Issues: https://github.com/pmilet/witness/issues
-- Discussions: https://github.com/pmilet/witness/discussions
+- [Full specification](witness-mcp-server-spec.md) — Complete tool definitions and data model
+- [Usage examples](examples/USAGE.md) — Ready-to-use scenarios
+- [.NET README](README-DOTNET.md) — Architecture and development guide

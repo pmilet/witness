@@ -10,4 +10,5 @@
   <Project Path="Witness.AspNetCore/Witness.AspNetCore.csproj" />
   <Project Path="Witness.Proxy/Witness.Proxy.csproj" />
   <Project Path="../demo/Witness.Simulation.Tests/Witness.Simulation.Tests.csproj" />
+  <Project Path="../demo/Witness.DemoApi/Witness.DemoApi.csproj" />
 </Solution>
