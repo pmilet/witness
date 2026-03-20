@@ -11,7 +11,12 @@
       "Bash(timeout 5 dotnet run:*)",
       "Bash(printf:*)",
       "Bash(mkdir:*)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Bash(dotnet run:*)"
     ]
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "witness"
+  ]
 }

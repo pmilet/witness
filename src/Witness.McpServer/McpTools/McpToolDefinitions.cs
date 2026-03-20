@@ -1,94 +1,119 @@
+using System.ComponentModel;
+using System.Text.Json;
+using MediatR;
+using ModelContextProtocol.Server;
+using Witness.Application.Commands;
+using Witness.Application.Queries;
+
 namespace Witness.McpServer.McpTools;
 
-public static class McpToolDefinitions
+[McpServerToolType]
+public sealed class WitnessTools
 {
-    public static readonly object[] Tools = new object[]
+    [McpServerTool(Name = "witness_record")]
+    [Description("Execute an HTTP request and capture the full interaction. Returns a WitnessId that can be used for replay and comparison.")]
+    public static async Task<string> Record(
+        IMediator mediator,
+        [Description("Base URL of the target API (e.g., https://api.example.com)")] string target,
+        [Description("HTTP method (GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS)")] string method,
+        [Description("Request path (e.g., /api/loans)")] string path,
+        [Description("HTTP headers as key-value pairs")] Dictionary<string, string>? headers = null,
+        [Description("Request body (JSON string or omit for no body)")] string? body = null,
+        [Description("Tag for this interaction (used in WitnessId)")] string? tag = null,
+        [Description("Session ID to group related interactions")] string? sessionId = null,
+        [Description("Human-readable description of what this interaction tests")] string? description = null,
+        [Description("Request timeout in milliseconds (default: 30000)")] int? timeoutMs = null,
+        [Description("Whether to follow HTTP redirects (default: true)")] bool? followRedirects = null)
     {
-        new
+        var command = new RecordInteractionCommand
         {
-            name = "witness/record",
-            description = "Execute an HTTP request and capture the full interaction. Returns a WitnessId that can be used for replay and comparison.",
-            inputSchema = new
+            Target = target,
+            Method = method,
+            Path = path,
+            Headers = headers,
+            Body = body is not null ? JsonSerializer.Deserialize<object>(body) : null,
+            Options = new RecordOptions
             {
-                type = "object",
-                properties = new
-                {
-                    target = new { type = "string", description = "Base URL of the target API (e.g., https://api.example.com)" },
-                    method = new { type = "string", description = "HTTP method (GET, POST, PUT, DELETE, PATCH)", @enum = new[] { "GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS" } },
-                    path = new { type = "string", description = "Request path (e.g., /api/loans)" },
-                    headers = new { type = "object", description = "HTTP headers as key-value pairs", additionalProperties = new { type = "string" } },
-                    body = new { description = "Request body (JSON object, string, or omit for no body)" },
-                    options = new
-                    {
-                        type = "object",
-                        description = "Recording options",
-                        properties = new
-                        {
-                            tag = new { type = "string", description = "Tag for this interaction (used in WitnessId)" },
-                            sessionId = new { type = "string", description = "Session ID to group related interactions" },
-                            description = new { type = "string", description = "Human-readable description of what this interaction tests" },
-                            timeoutMs = new { type = "number", description = "Request timeout in milliseconds (default: 30000)" },
-                            followRedirects = new { type = "boolean", description = "Whether to follow HTTP redirects (default: true)" }
-                        }
-                    }
-                },
-                required = new[] { "target", "method", "path" }
+                Tag = tag,
+                SessionId = sessionId,
+                Description = description,
+                TimeoutMs = timeoutMs,
+                FollowRedirects = followRedirects
             }
-        },
-        new
+        };
+
+        var result = await mediator.Send(command);
+        return JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true });
+    }
+
+    [McpServerTool(Name = "witness_replay")]
+    [Description("Replay a previously recorded interaction against a different target.")]
+    public static async Task<string> Replay(
+        IMediator mediator,
+        [Description("The WitnessId of the interaction to replay")] string witnessId,
+        [Description("New target URL to replay against")] string target,
+        [Description("Tag for the replay interaction")] string? tag = null,
+        [Description("Session ID for the replay")] string? sessionId = null,
+        [Description("Headers to override in the replay as key-value pairs")] Dictionary<string, string>? overrideHeaders = null)
+    {
+        var command = new ReplayInteractionCommand
         {
-            name = "witness/replay",
-            description = "Replay a previously recorded interaction against a different target.",
-            inputSchema = new
+            WitnessId = witnessId,
+            Target = target,
+            Options = new ReplayOptions
             {
-                type = "object",
-                properties = new
-                {
-                    witnessId = new { type = "string", description = "The WitnessId of the interaction to replay" },
-                    target = new { type = "string", description = "New target URL to replay against" },
-                    options = new
-                    {
-                        type = "object",
-                        description = "Replay options",
-                        properties = new
-                        {
-                            tag = new { type = "string", description = "Tag for the replay interaction" },
-                            sessionId = new { type = "string", description = "Session ID for the replay" },
-                            overrideHeaders = new { type = "object", description = "Headers to override in the replay", additionalProperties = new { type = "string" } }
-                        }
-                    }
-                },
-                required = new[] { "witnessId", "target" }
+                Tag = tag,
+                SessionId = sessionId,
+                OverrideHeaders = overrideHeaders
             }
-        },
-        new
+        };
+
+        var result = await mediator.Send(command);
+        return JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true });
+    }
+
+    [McpServerTool(Name = "witness_inspect")]
+    [Description("View the full details of a recorded interaction.")]
+    public static async Task<string> Inspect(
+        IMediator mediator,
+        [Description("The WitnessId to inspect")] string witnessId,
+        [Description("Optional session ID to narrow the search")] string? sessionId = null)
+    {
+        var query = new InspectInteractionQuery
         {
-            name = "witness/inspect",
-            description = "View the full details of a recorded interaction.",
-            inputSchema = new
-            {
-                type = "object",
-                properties = new
-                {
-                    witnessId = new { type = "string", description = "The WitnessId to inspect" },
-                    sessionId = new { type = "string", description = "Optional session ID to narrow the search" }
-                },
-                required = new[] { "witnessId" }
-            }
-        },
-        new
+            WitnessId = witnessId,
+            SessionId = sessionId
+        };
+
+        var result = await mediator.Send(query);
+        return JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true });
+    }
+
+    [McpServerTool(Name = "witness_list")]
+    [Description("List recorded sessions or interactions within a session.")]
+    public static async Task<string> List(
+        IMediator mediator,
+        [Description("Optional session ID to list interactions from a specific session")] string? sessionId = null,
+        [Description("Maximum number of results to return (default: 50)")] int limit = 50)
+    {
+        if (sessionId is not null)
         {
-            name = "witness/list",
-            description = "List recorded sessions or interactions within a session.",
-            inputSchema = new
+            var query = new ListInteractionsQuery
             {
-                type = "object",
-                properties = new
-                {
-                    sessionId = new { type = "string", description = "Optional session ID to list interactions from a specific session" },
-                    limit = new { type = "number", description = "Maximum number of results to return (default: 50)", @default = 50 }
-                }
-            }
+                SessionId = sessionId,
+                Limit = limit
+            };
+            var result = await mediator.Send(query);
+            return JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true });
         }
-    };
+        else
+        {
+            var query = new ListSessionsQuery
+            {
+                Limit = limit
+            };
+            var result = await mediator.Send(query);
+            return JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true });
+        }
+    }
 }

@@ -454,6 +454,9 @@ TestResults/
 # Witness storage
 witness-store/
 
+# Claude Code
+.claude/
+
 # Temporary files
 *.tmp
 *.swp

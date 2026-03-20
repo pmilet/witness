@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "witness": {
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "C:\\code\\witness\\src\\Witness.McpServer\\Witness.McpServer.csproj"
+      ]
+    }
+  }
+}

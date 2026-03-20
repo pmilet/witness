@@ -32,7 +32,7 @@ public sealed class SimulationTests
             method = "tools/call",
             @params = new
             {
-                name = "witness/record",
+                name = "witness_record",
                 arguments = new
                 {
                     target = LegacyTarget,
@@ -59,7 +59,7 @@ public sealed class SimulationTests
             method = "tools/call",
             @params = new
             {
-                name = "witness/record",
+                name = "witness_record",
                 arguments = new
                 {
                     target = ModernTarget,
@@ -84,7 +84,7 @@ public sealed class SimulationTests
             method = "tools/call",
             @params = new
             {
-                name = "witness/record",
+                name = "witness_record",
                 arguments = new
                 {
                     target = LegacyTarget,
@@ -112,7 +112,7 @@ public sealed class SimulationTests
             method = "tools/call",
             @params = new
             {
-                name = "witness/replay",
+                name = "witness_replay",
                 arguments = new
                 {
                     witnessId = legacyPostWitnessId,
@@ -137,7 +137,7 @@ public sealed class SimulationTests
             method = "tools/call",
             @params = new
             {
-                name = "witness/list",
+                name = "witness_list",
                 arguments = new { sessionId = _sessionId }
             }
         });
