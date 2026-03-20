@@ -3,7 +3,7 @@
  */
 
 import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
-import { Interaction, RecordOptions } from '../types/index.js';
+import { Interaction, RecordOptions, WitnessConfig } from '../types/index.js';
 import { generateWitnessId } from './witnessId.js';
 
 export interface ExecuteRequestParams {
@@ -11,7 +11,7 @@ export interface ExecuteRequestParams {
   method: string;
   path: string;
   headers?: Record<string, string>;
-  body?: any;
+  body?: unknown;
   options?: RecordOptions;
 }
 
@@ -19,11 +19,19 @@ export interface ExecuteResult {
   interaction: Interaction;
   statusCode: number;
   durationMs: number;
-  responseBody: any;
+  responseBody: unknown;
   responseHeaders: Record<string, string>;
 }
 
 export class HttpExecutor {
+  private readonly defaultTimeoutMs: number;
+  private readonly defaultFollowRedirects: boolean;
+
+  constructor(defaults?: WitnessConfig['defaults']) {
+    this.defaultTimeoutMs = defaults?.timeoutMs ?? 30000;
+    this.defaultFollowRedirects = defaults?.followRedirects ?? true;
+  }
+
   /**
    * Execute an HTTP request and capture the full interaction
    */
@@ -45,8 +53,8 @@ export class HttpExecutor {
       method: method.toUpperCase(),
       url,
       headers: this.prepareHeaders(headers, body),
-      timeout: options.timeoutMs || 30000,
-      maxRedirects: options.followRedirects !== false ? 5 : 0,
+      timeout: options.timeoutMs ?? this.defaultTimeoutMs,
+      maxRedirects: (options.followRedirects ?? this.defaultFollowRedirects) ? 5 : 0,
       validateStatus: () => true, // Don't throw on any status code
     };
 
@@ -61,10 +69,11 @@ export class HttpExecutor {
     
     try {
       response = await axios(config);
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Handle network errors
       const durationMs = Date.now() - startTime;
-      throw new Error(`HTTP request failed: ${error.message} (${durationMs}ms)`);
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`HTTP request failed: ${message} (${durationMs}ms)`);
     }
 
     const durationMs = Date.now() - startTime;
@@ -85,13 +94,13 @@ export class HttpExecutor {
         path,
         headers: config.headers as Record<string, string>,
         body,
-        contentType: this.getContentType(config.headers),
+        contentType: this.getContentType(config.headers as Record<string, unknown>),
       },
       response: {
         statusCode: response.status,
         headers: response.headers as Record<string, string>,
         body: response.data,
-        contentType: this.getContentType(response.headers),
+        contentType: this.getContentType(response.headers as Record<string, unknown>),
         durationMs,
       },
       metadata: {
@@ -127,7 +136,7 @@ export class HttpExecutor {
    */
   private prepareHeaders(
     headers: Record<string, string>,
-    body?: any
+    body?: unknown
   ): Record<string, string> {
     const result = { ...headers };
 
@@ -142,9 +151,10 @@ export class HttpExecutor {
   /**
    * Extract content-type from headers
    */
-  private getContentType(headers: any): string | undefined {
+  private getContentType(headers: Record<string, unknown> | undefined): string | undefined {
     if (!headers) return undefined;
-    return headers['content-type'] || headers['Content-Type'];
+    const ct = headers['content-type'] ?? headers['Content-Type'];
+    return typeof ct === 'string' ? ct : undefined;
   }
 
   /**

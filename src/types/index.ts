@@ -18,7 +18,7 @@ export interface Interaction {
     url: string;
     path: string;
     headers: Record<string, string>;
-    body?: any;
+    body?: unknown;
     contentType?: string;
   };
 
@@ -26,7 +26,7 @@ export interface Interaction {
   response: {
     statusCode: number;
     headers: Record<string, string>;
-    body?: any;
+    body?: unknown;
     contentType?: string;
     durationMs: number;
   };

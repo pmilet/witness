@@ -13,7 +13,7 @@ export function generateWitnessId(
   tag: string,
   method: string,
   path: string,
-  body?: any
+  body?: unknown
 ): string {
   const pathSlug = createPathSlug(path);
   const bodyHash = createBodyHash(body);
@@ -54,8 +54,8 @@ function createPathSlug(path: string): string {
  * Create a hash of the request body
  * Returns first 8 characters of SHA-256 hash, or '00000000' for no body
  */
-function createBodyHash(body?: any): string {
-  if (!body || (typeof body === 'object' && Object.keys(body).length === 0)) {
+function createBodyHash(body?: unknown): string {
+  if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body as Record<string, unknown>).length === 0) {
     return '00000000';
   }
 

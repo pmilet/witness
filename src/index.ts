@@ -10,14 +10,58 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
+import { promises as fs } from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 import { HttpExecutor } from './core/httpExecutor.js';
 import { InteractionStore } from './storage/interactionStore.js';
-import { recordTool, replayTool, inspectTool, listTool, ToolContext } from './tools/index.js';
+import { recordTool, replayTool, inspectTool, listTool, compareTool, ToolContext } from './tools/index.js';
+import { WitnessConfig } from './types/index.js';
 
-// Initialize core components
-const executor = new HttpExecutor();
-const store = new InteractionStore();
+/**
+ * Load witness.config.json from the directory containing this script,
+ * or the current working directory, falling back to built-in defaults.
+ */
+async function loadConfig(): Promise<WitnessConfig> {
+  const defaults: WitnessConfig = {
+    storage: { type: 'local', path: './witness-store' },
+    defaults: { timeoutMs: 30000, followRedirects: true },
+    comparison: { defaultIgnoreFields: ['timestamp', 'requestId', 'date'], defaultNumericTolerance: 0.001 }
+  };
+
+  const searchDirs = [
+    path.dirname(fileURLToPath(import.meta.url)),
+    process.cwd()
+  ];
+
+  for (const dir of searchDirs) {
+    const configPath = path.join(dir, 'witness.config.json');
+    try {
+      const raw = await fs.readFile(configPath, 'utf-8');
+      const parsed = JSON.parse(raw) as { witness?: WitnessConfig };
+      if (parsed.witness) {
+        // Deep-merge parsed config over defaults
+        return {
+          storage: { ...defaults.storage, ...parsed.witness.storage },
+          defaults: { ...defaults.defaults, ...parsed.witness.defaults },
+          comparison: { ...defaults.comparison, ...parsed.witness.comparison }
+        };
+      }
+    } catch {
+      // Config file not found or not parseable — try next location
+    }
+  }
+
+  return defaults;
+}
+
+// Load configuration
+const config = await loadConfig();
+
+// Initialize core components using values from config
+const executor = new HttpExecutor(config.defaults);
+const store = new InteractionStore(config.storage.path);
 
 // Initialize storage on startup
 await store.initialize();
@@ -34,7 +78,8 @@ console.error('');
 
 const context: ToolContext = {
   executor,
-  store
+  store,
+  compareIgnoreFields: config.comparison?.defaultIgnoreFields
 };
 
 // Create MCP server
@@ -181,6 +226,37 @@ const TOOLS = [
         }
       }
     }
+  },
+  {
+    name: 'witness/compare',
+    description: 'Compare two recorded interactions and report differences in status code, response headers, and response body. Useful for API migration testing and regression detection.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        witnessId1: {
+          type: 'string',
+          description: 'WitnessId of the first (original) interaction'
+        },
+        witnessId2: {
+          type: 'string',
+          description: 'WitnessId of the second (replay) interaction'
+        },
+        sessionId1: {
+          type: 'string',
+          description: 'Optional session ID to locate the first interaction'
+        },
+        sessionId2: {
+          type: 'string',
+          description: 'Optional session ID to locate the second interaction'
+        },
+        ignoreFields: {
+          type: 'array',
+          description: 'Response body field names to exclude from comparison (e.g. ["timestamp", "requestId"])',
+          items: { type: 'string' }
+        }
+      },
+      required: ['witnessId1', 'witnessId2']
+    }
   }
 ];
 
@@ -197,13 +273,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
     switch (name) {
       case 'witness/record':
-        return await recordTool(args, context);
+        return await recordTool(args as unknown as Parameters<typeof recordTool>[0], context);
       case 'witness/replay':
-        return await replayTool(args, context);
+        return await replayTool(args as unknown as Parameters<typeof replayTool>[0], context);
       case 'witness/inspect':
-        return await inspectTool(args, context);
+        return await inspectTool(args as unknown as Parameters<typeof inspectTool>[0], context);
       case 'witness/list':
-        return await listTool(args, context);
+        return await listTool(args as unknown as Parameters<typeof listTool>[0], context);
+      case 'witness/compare':
+        return await compareTool(args as unknown as Parameters<typeof compareTool>[0], context);
       default:
         return {
           content: [{
@@ -213,14 +291,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           isError: true
         };
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    const stack = error instanceof Error ? error.stack : undefined;
     return {
       content: [{
         type: 'text',
         text: JSON.stringify({
           error: 'Internal error',
-          message: error.message,
-          stack: error.stack
+          message,
+          stack
         }, null, 2)
       }],
       isError: true

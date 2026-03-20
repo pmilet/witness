@@ -188,6 +188,118 @@ async function runTests() {
     failed++;
   }
 
+  // Test 8: compareTool - identical interactions produce isMatch=true
+  try {
+    const { compareTool } = await import('./dist/tools/index.js');
+    const store = new InteractionStore(TEST_STORE_PATH);
+    await store.initialize();
+
+    const makeInteraction = (id, body) => ({
+      witnessId: id,
+      sessionId: 'compare-session',
+      timestamp: new Date().toISOString(),
+      request: { method: 'GET', url: 'https://example.com/api/test', path: '/api/test', headers: {} },
+      response: { statusCode: 200, headers: { 'content-type': 'application/json' }, body, contentType: 'application/json', durationMs: 50 },
+      metadata: { tags: ['compare-test'] }
+    });
+
+    const i1 = makeInteraction('compare_GET_api-test_00000000_20260208T1000', { value: 42 });
+    const i2 = makeInteraction('compare_GET_api-test_00000000_20260208T1001', { value: 42 });
+    await store.saveInteraction(i1);
+    await store.saveInteraction(i2);
+
+    const result = await compareTool(
+      { witnessId1: i1.witnessId, witnessId2: i2.witnessId },
+      { executor: null, store }
+    );
+    const parsed = JSON.parse(result.content[0].text);
+
+    if (parsed.isMatch === true && parsed.summary.body.diffCount === 0 && parsed.summary.statusCode.match === true) {
+      console.log('✅ Test 8: compareTool - identical responses match');
+      passed++;
+    } else {
+      throw new Error(`Unexpected result: ${JSON.stringify(parsed.summary)}`);
+    }
+  } catch (error) {
+    console.log('❌ Test 8: compareTool - identical responses match');
+    console.log(`   Error: ${error.message}`);
+    failed++;
+  }
+
+  // Test 9: compareTool - different body produces diffs
+  try {
+    const { compareTool } = await import('./dist/tools/index.js');
+    const store = new InteractionStore(TEST_STORE_PATH);
+
+    const makeInteraction = (id, body) => ({
+      witnessId: id,
+      sessionId: 'compare-session',
+      timestamp: new Date().toISOString(),
+      request: { method: 'GET', url: 'https://example.com/api/test', path: '/api/test', headers: {} },
+      response: { statusCode: 200, headers: { 'content-type': 'application/json' }, body, contentType: 'application/json', durationMs: 50 },
+      metadata: { tags: ['compare-test'] }
+    });
+
+    const i3 = makeInteraction('compare_GET_api-test_00000000_20260208T1002', { value: 1 });
+    const i4 = makeInteraction('compare_GET_api-test_00000000_20260208T1003', { value: 2 });
+    await store.saveInteraction(i3);
+    await store.saveInteraction(i4);
+
+    const result = await compareTool(
+      { witnessId1: i3.witnessId, witnessId2: i4.witnessId },
+      { executor: null, store }
+    );
+    const parsed = JSON.parse(result.content[0].text);
+
+    if (parsed.isMatch === false && parsed.summary.body.diffCount === 1 && parsed.summary.body.diffs[0].path === 'value') {
+      console.log('✅ Test 9: compareTool - different bodies produce diffs');
+      passed++;
+    } else {
+      throw new Error(`Unexpected result: ${JSON.stringify(parsed.summary)}`);
+    }
+  } catch (error) {
+    console.log('❌ Test 9: compareTool - different bodies produce diffs');
+    console.log(`   Error: ${error.message}`);
+    failed++;
+  }
+
+  // Test 10: compareTool - ignoreFields excludes specified fields
+  try {
+    const { compareTool } = await import('./dist/tools/index.js');
+    const store = new InteractionStore(TEST_STORE_PATH);
+
+    const makeInteraction = (id, body) => ({
+      witnessId: id,
+      sessionId: 'compare-session',
+      timestamp: new Date().toISOString(),
+      request: { method: 'GET', url: 'https://example.com/api/test', path: '/api/test', headers: {} },
+      response: { statusCode: 200, headers: { 'content-type': 'application/json' }, body, contentType: 'application/json', durationMs: 50 },
+      metadata: { tags: ['compare-test'] }
+    });
+
+    const i5 = makeInteraction('compare_GET_api-test_00000000_20260208T1004', { value: 1, requestId: 'abc' });
+    const i6 = makeInteraction('compare_GET_api-test_00000000_20260208T1005', { value: 1, requestId: 'xyz' });
+    await store.saveInteraction(i5);
+    await store.saveInteraction(i6);
+
+    const result = await compareTool(
+      { witnessId1: i5.witnessId, witnessId2: i6.witnessId, ignoreFields: ['requestId'] },
+      { executor: null, store }
+    );
+    const parsed = JSON.parse(result.content[0].text);
+
+    if (parsed.isMatch === true && parsed.summary.body.diffCount === 0) {
+      console.log('✅ Test 10: compareTool - ignoreFields excludes field');
+      passed++;
+    } else {
+      throw new Error(`Unexpected result: ${JSON.stringify(parsed.summary)}`);
+    }
+  } catch (error) {
+    console.log('❌ Test 10: compareTool - ignoreFields excludes field');
+    console.log(`   Error: ${error.message}`);
+    failed++;
+  }
+
   // Clean up test store
   try {
     await fs.rm(TEST_STORE_PATH, { recursive: true, force: true });
