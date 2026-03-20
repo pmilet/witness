@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(npm install:*)",
+      "Bash(docker compose:*)",
+      "Bash(curl:*)",
+      "Bash(rm:*)",
+      "Bash(dotnet build:*)",
+      "Bash(dotnet test:*)",
+      "Bash(timeout 5 dotnet run:*)",
+      "Bash(printf:*)",
+      "Bash(mkdir:*)",
+      "Bash(mv:*)"
+    ]
+  }
+}

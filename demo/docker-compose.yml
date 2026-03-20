@@ -1,0 +1,16 @@
+version: "3.8"
+services:
+  legacy-api:
+    image: node:18-alpine
+    volumes:
+      - ./docker/legacy-api.js:/app.js
+    command: node /app.js
+    ports:
+      - "3001:3001"
+  modern-api:
+    image: node:18-alpine
+    volumes:
+      - ./docker/modern-api.js:/app.js
+    command: node /app.js
+    ports:
+      - "3002:3002"

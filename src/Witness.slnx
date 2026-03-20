@@ -7,4 +7,5 @@
   <Project Path="Witness.Infrastructure/Witness.Infrastructure.csproj" />
   <Project Path="Witness.Integration.Tests/Witness.Integration.Tests.csproj" />
   <Project Path="Witness.McpServer/Witness.McpServer.csproj" />
+  <Project Path="../demo/Witness.Simulation.Tests/Witness.Simulation.Tests.csproj" />
 </Solution>
