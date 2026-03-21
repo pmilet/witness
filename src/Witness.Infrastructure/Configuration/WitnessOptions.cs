@@ -12,6 +12,8 @@ public sealed class StorageOptions
 {
     public string Type { get; init; } = "local";
     public string Path { get; init; } = "./witness-store";
+    public string? ConnectionString { get; init; }
+    public string ContainerName { get; init; } = "witness-store";
 }
 
 public sealed class DefaultsOptions
